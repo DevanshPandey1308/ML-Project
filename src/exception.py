@@ -18,11 +18,13 @@ def error_message(error, error_detail:sys):
 
 class CustomException(Exception):
 
-    def __init__(self, error_message, error_detail:sys):
+    def __init__(self, error_message_detail, error_detail:sys):
 
-        super().__init__(error_message)
+        super().__init__(error_message_detail)
 
-        self.error_message = error_message(error_message, error_detail)
+        self.error_message = error_message(error_message_detail, error_detail)
+
+
 
     def __str__(self):
 
