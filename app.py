@@ -38,7 +38,22 @@ def predict_datapoint():
         print("Mid Prediction")
         results=predict_pipeline.predict(pred_df)
         print("after Prediction")
-        return render_template('home.html',results=results[0])
+        
+        model_scores = {
+        "Linear Regression": 0.88,
+        "Random Forest": 0.84,
+        "Decision Tree": 0.73,
+        "Gradient Boosting": 0.85,
+        "XGBRegressor": 0.86,
+        "CatBoosting Regressor": 0.85,
+        "AdaBoost Regressor": 0.82
+    }
+
+        return render_template(
+            'home.html',
+            results=results[0],
+            model_scores=model_scores
+        )
     
 
 if __name__ == "__main__":

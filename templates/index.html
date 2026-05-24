@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Performance Predictor</title>
+    <title>Student Performance Prediction</title>
 
     <style>
 
@@ -16,48 +16,75 @@
 
         body{
             background: #f4f7fb;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
+            padding: 40px;
         }
 
         .container{
-            width: 90%;
-            max-width: 800px;
+            max-width: 950px;
+            margin: auto;
         }
 
         .card{
             background: white;
-            padding: 50px;
+            padding: 40px;
             border-radius: 20px;
             box-shadow: 0px 10px 30px rgba(0,0,0,0.1);
-            text-align: center;
         }
 
         h1{
-            font-size: 40px;
-            margin-bottom: 20px;
+            text-align: center;
+            margin-bottom: 10px;
             color: #1e293b;
+            font-size: 38px;
         }
 
-        p{
-            font-size: 18px;
+        .subtitle{
+            text-align: center;
+            margin-bottom: 40px;
             color: #64748b;
-            margin-bottom: 35px;
+            font-size: 18px;
         }
 
-        a{
-            text-decoration: none;
+        form{
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .full-width{
+            grid-column: span 2;
+        }
+
+        label{
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #334155;
+        }
+
+        input,
+        select{
+            width: 100%;
+            padding: 12px;
+            border-radius: 10px;
+            border: 1px solid #cbd5e1;
+            font-size: 15px;
+            outline: none;
+        }
+
+        input:focus,
+        select:focus{
+            border-color: #2563eb;
         }
 
         button{
+            width: 100%;
+            padding: 14px;
             background: #2563eb;
             color: white;
             border: none;
-            padding: 15px 30px;
-            font-size: 18px;
             border-radius: 10px;
+            font-size: 18px;
             cursor: pointer;
             transition: 0.3s;
         }
@@ -66,26 +93,201 @@
             background: #1d4ed8;
         }
 
+        .result{
+            margin-top: 35px;
+            text-align: center;
+            background: #dcfce7;
+            padding: 20px;
+            border-radius: 12px;
+            color: #166534;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .comparison-box{
+            margin-top: 35px;
+            background: #ffffff;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0px 5px 15px rgba(0,0,0,0.08);
+        }
+
+        .comparison-title{
+            background: #2563eb;
+            color: white;
+            padding: 18px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        table{
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        table th{
+            background: #eff6ff;
+            color: #1e293b;
+            padding: 15px;
+            font-size: 17px;
+        }
+
+        table td{
+            padding: 15px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        table tr:hover{
+            background: #f8fafc;
+        }
+
     </style>
 
 </head>
+
 <body>
 
     <div class="container">
 
         <div class="card">
 
-            <h1>Student Exam Performance Predictor</h1>
+            <h1>Student Performance Prediction</h1>
 
-            <p>
-                Predict Maths Score using Machine Learning
+            <p class="subtitle">
+                Predict Maths Score using Machine Learning Models
             </p>
 
-            <a href="/predictdata">
-                <button>
-                    Start Prediction
-                </button>
-            </a>
+            <form action="/predictdata" method="POST">
+
+                <div>
+                    <label>Gender</label>
+
+                    <select name="gender" required>
+                        <option value="">Select Gender</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label>Race / Ethnicity</label>
+
+                    <select name="ethnicity" required>
+                        <option value="">Select Group</option>
+                        <option value="group A">Group A</option>
+                        <option value="group B">Group B</option>
+                        <option value="group C">Group C</option>
+                        <option value="group D">Group D</option>
+                        <option value="group E">Group E</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label>Parental Level of Education</label>
+
+                    <select name="parental_level_of_education" required>
+                        <option value="">Select Education</option>
+                        <option value="associate's degree">Associate's Degree</option>
+                        <option value="bachelor's degree">Bachelor's Degree</option>
+                        <option value="high school">High School</option>
+                        <option value="master's degree">Master's Degree</option>
+                        <option value="some college">Some College</option>
+                        <option value="some high school">Some High School</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label>Lunch Type</label>
+
+                    <select name="lunch" required>
+                        <option value="">Select Lunch Type</option>
+                        <option value="standard">Standard</option>
+                        <option value="free/reduced">Free / Reduced</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label>Test Preparation Course</label>
+
+                    <select name="test_preparation_course" required>
+                        <option value="">Select Course Status</option>
+                        <option value="none">None</option>
+                        <option value="completed">Completed</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label>Reading Score</label>
+
+                    <input type="number"
+                           name="reading_score"
+                           placeholder="Enter Reading Score"
+                           required>
+                </div>
+
+                <div class="full-width">
+                    <label>Writing Score</label>
+
+                    <input type="number"
+                           name="writing_score"
+                           placeholder="Enter Writing Score"
+                           required>
+                </div>
+
+                <div class="full-width">
+                    <button type="submit">
+                        Predict Maths Score
+                    </button>
+                </div>
+
+            </form>
+
+            {% if results %}
+
+            <div class="result">
+
+                Predicted Maths Score : {{ results }}
+
+            </div>
+
+            {% endif %}
+
+
+            {% if model_scores %}
+
+            <div class="comparison-box">
+
+                <div class="comparison-title">
+                    Model Comparison
+                </div>
+
+                <table>
+
+                    <tr>
+                        <th>Model Name</th>
+                        <th>R² Score</th>
+                    </tr>
+
+                    {% for model, score in model_scores.items() %}
+
+                    <tr>
+
+                        <td>{{ model }}</td>
+
+                        <td>{{ score }}</td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </table>
+
+            </div>
+
+            {% endif %}
 
         </div>
 

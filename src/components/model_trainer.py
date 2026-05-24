@@ -119,7 +119,7 @@ class ModelTrainer:
             predicted = best_model.predict(X_test)
 
             model_r2_score = r2_score(y_test, predicted)
-            return model_r2_score
+            return model_r2_score, model_report
 
 
         except Exception as e:

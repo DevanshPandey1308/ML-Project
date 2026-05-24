@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prediction Form</title>
+    <title>Student Performance Prediction</title>
 
     <style>
 
@@ -15,12 +15,12 @@
         }
 
         body{
-            background: #f4f7fb;
+            background: #f1f5f9;
             padding: 40px;
         }
 
         .container{
-            max-width: 900px;
+            max-width: 1200px;
             margin: auto;
         }
 
@@ -33,14 +33,16 @@
 
         h1{
             text-align: center;
+            color: #0f172a;
             margin-bottom: 10px;
-            color: #1e293b;
+            font-size: 40px;
         }
 
         .subtitle{
             text-align: center;
-            margin-bottom: 40px;
             color: #64748b;
+            margin-bottom: 40px;
+            font-size: 18px;
         }
 
         form{
@@ -63,22 +65,30 @@
         input,
         select{
             width: 100%;
-            padding: 12px;
+            padding: 14px;
             border-radius: 10px;
             border: 1px solid #cbd5e1;
             font-size: 15px;
+            background: #fff;
+        }
+
+        input:focus,
+        select:focus{
+            outline: none;
+            border-color: #2563eb;
         }
 
         button{
             width: 100%;
-            padding: 14px;
+            padding: 16px;
             background: #2563eb;
             color: white;
             border: none;
-            border-radius: 10px;
+            border-radius: 12px;
             font-size: 18px;
             cursor: pointer;
             transition: 0.3s;
+            font-weight: bold;
         }
 
         button:hover{
@@ -86,19 +96,91 @@
         }
 
         .result{
-            margin-top: 30px;
-            text-align: center;
+            margin-top: 40px;
             background: #dcfce7;
-            padding: 20px;
-            border-radius: 10px;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+        }
+
+        .result h2{
             color: #166534;
+            font-size: 32px;
+        }
+
+        .comparison-box{
+            margin-top: 50px;
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0px 10px 30px rgba(0,0,0,0.08);
+        }
+
+        .comparison-title{
+            background: #2563eb;
+            color: white;
+            padding: 20px;
             font-size: 24px;
             font-weight: bold;
+            text-align: center;
+        }
+
+        table{
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th{
+            background: #eff6ff;
+            color: #1e3a8a;
+            padding: 16px;
+            font-size: 18px;
+        }
+
+        td{
+            padding: 16px;
+            text-align: center;
+            border-top: 1px solid #e2e8f0;
+            font-size: 16px;
+        }
+
+        tr:hover{
+            background: #f8fafc;
+        }
+
+        .eda-grid{
+            padding: 30px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+        }
+
+        .eda-grid img{
+            width: 100%;
+            border-radius: 15px;
+            box-shadow: 0px 5px 20px rgba(0,0,0,0.08);
+        }
+
+        @media(max-width:768px){
+
+            form{
+                grid-template-columns: 1fr;
+            }
+
+            .full-width{
+                grid-column: span 1;
+            }
+
+            .eda-grid{
+                grid-template-columns: 1fr;
+            }
+
         }
 
     </style>
 
 </head>
+
 <body>
 
     <div class="container">
@@ -108,7 +190,7 @@
             <h1>Student Performance Prediction</h1>
 
             <p class="subtitle">
-                Enter Student Details
+                Predict Maths Score using Machine Learning
             </p>
 
             <form action="/predictdata" method="POST">
@@ -173,19 +255,27 @@
                 <div>
                     <label>Reading Score</label>
 
-                    <input type="number" name="reading_score" placeholder="Enter Reading Score" required>
+                    <input type="number"
+                           name="reading_score"
+                           placeholder="Enter Reading Score"
+                           required>
                 </div>
 
                 <div class="full-width">
                     <label>Writing Score</label>
 
-                    <input type="number" name="writing_score" placeholder="Enter Writing Score" required>
+                    <input type="number"
+                           name="writing_score"
+                           placeholder="Enter Writing Score"
+                           required>
                 </div>
 
                 <div class="full-width">
+
                     <button type="submit">
                         Predict Maths Score
                     </button>
+
                 </div>
 
             </form>
@@ -194,11 +284,92 @@
 
             <div class="result">
 
-                Predicted Maths Score: {{ results }}
+                <h2>
+                    Predicted Maths Score: {{ results }}
+                </h2>
 
             </div>
 
             {% endif %}
+
+        </div>
+
+
+        <!-- MODEL COMPARISON -->
+
+        <div class="comparison-box">
+
+            <div class="comparison-title">
+                Model Performance Comparison
+            </div>
+
+            <table>
+
+                <thead>
+
+                    <tr>
+                        <th>Model Name</th>
+                        <th>R² Score</th>
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    {% for model, score in model_scores.items() %}
+
+                    <tr>
+
+                        <td>{{ model }}</td>
+
+                        <td>{{ score }}</td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+
+        <!-- EDA SECTION -->
+
+        <div class="comparison-box">
+
+            <div class="comparison-title">
+                Exploratory Data Analysis
+            </div>
+
+            <div class="eda-grid">
+
+                <div>
+
+                    <img src="{{ url_for('static', filename='images/math_distribution.png') }}">
+
+                </div>
+
+                <div>
+
+                    <img src="{{ url_for('static', filename='images/reading_vs_math.png') }}">
+
+                </div>
+
+                <div>
+
+                    <img src="{{ url_for('static', filename='images/writing_vs_math.png') }}">
+
+                </div>
+
+                <div>
+
+                    <img src="{{ url_for('static', filename='images/correlation_heatmap.png') }}">
+
+                </div>
+
+            </div>
 
         </div>
 

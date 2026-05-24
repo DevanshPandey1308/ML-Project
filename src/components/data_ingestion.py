@@ -62,5 +62,8 @@ if __name__== "__main__":
 
     print("MODEL TRAINING STARTING")
 
-    print(modeltrainer.initiate_model_trainer(train_arr, test_arr))
+    r2_score, model_report = modeltrainer.initiate_model_trainer(train_arr, test_arr)
+
+    print(r2_score)
+    print(model_report)
     
