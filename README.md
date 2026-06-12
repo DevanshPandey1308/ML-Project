@@ -160,22 +160,6 @@ http://localhost:5000
 
 ---
 
-## Screenshots
-
-### Home Page
-
-*Add Screenshot Here*
-
-### Prediction Form
-
-*Add Screenshot Here*
-
-### Prediction Output
-
-*Add Screenshot Here*
-
----
-
 ## Key Learnings
 
 Through this project, I gained hands-on experience in:
@@ -207,7 +191,6 @@ Through this project, I gained hands-on experience in:
 **Devansh Pandey**
 
 * GitHub: https://github.com/DevanshPandey1308
-* LinkedIn: https://linkedin.com/in/devansh-pandey
 
 ```
 ```
