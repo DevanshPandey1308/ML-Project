@@ -176,12 +176,12 @@ http://127.0.0.1:5000
 <img width="746" height="448" alt="Screenshot 2026-06-13 221258" src="https://github.com/user-attachments/assets/cf2f0fa4-04f4-4a25-a968-43663bd5d6b0" />
 
 
-### Prediction Form
+### Prediction Output
 
 <img width="746" height="445" alt="Screenshot 2026-06-13 221337" src="https://github.com/user-attachments/assets/4a3b3e97-1f6e-45e5-9248-a6dcc716de8a" />
 
 
-### Prediction Output
+### Exploratory Data Analysis
 
 <img width="746" height="447" alt="Screenshot 2026-06-13 221354" src="https://github.com/user-attachments/assets/5efc4dd9-7934-46a4-89bf-e46dd369d96b" />
 
