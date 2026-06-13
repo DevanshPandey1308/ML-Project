@@ -221,7 +221,7 @@ Through this project, I gained hands-on experience in:
 **email : devanshp171@gmail.com**
 
 * GitHub: https://github.com/DevanshPandey1308
-* LinkedIn: https://linkedin.com/in/devansh-pandey
+* LinkedIn: https://www.linkedin.com/in/devanshp13/
 
 ---
 
