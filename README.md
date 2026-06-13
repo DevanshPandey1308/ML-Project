@@ -1,105 +1,228 @@
-🎓 Student Performance Prediction
+# 🎓 Student Performance Prediction
 
-An end-to-end Machine Learning project that predicts a student's Math Score based on demographic and academic attributes. The project follows a production-style modular pipeline architecture and is deployed on AWS Elastic Beanstalk.
+An end-to-end Machine Learning application that predicts a student's **Math Score** using demographic and academic attributes such as gender, race/ethnicity, parental level of education, lunch type, test preparation course, reading score, and writing score.
 
+The project follows a production-style machine learning workflow including data ingestion, transformation, model training, evaluation, prediction pipeline creation, Flask integration, and AWS deployment.
 
-🚀 Key Features
+---
 
+## 🚀 Key Features
 
-End-to-End ML Pipeline (Data → Model → Deployment)
-Modular, scalable project architecture
-Automated Data Ingestion pipeline
-Configurable Data Transformation pipeline (encoding, scaling, imputation)
-Training and evaluation across multiple regression models
-Automatic Best Model Selection based on evaluation metrics
-Reusable Prediction Pipeline for inference
-Flask-based web application for real-time predictions
-Deployed on AWS Elastic Beanstalk
+* End-to-End Machine Learning Pipeline
+* Automated Data Ingestion & Data Transformation
+* Multiple Model Training & Evaluation
+* Automatic Best Model Selection
+* Reusable Prediction Pipeline
+* Flask-based Web Application
+* AWS Elastic Beanstalk Deployment
+* Modular & Scalable Project Architecture
+* Production-Oriented Code Structure
 
+---
 
+## 🛠️ Tech Stack
 
-🛠️ Tech Stack
+| Category         | Tools                           |
+| ---------------- | ------------------------------- |
+| Language         | Python                          |
+| Data Handling    | Pandas, NumPy                   |
+| Machine Learning | Scikit-Learn, XGBoost, CatBoost |
+| Visualization    | Matplotlib, Seaborn             |
+| Web Framework    | Flask                           |
+| Deployment       | AWS Elastic Beanstalk           |
+| Version Control  | Git, GitHub                     |
 
-CategoryToolsLanguagePythonData HandlingPandas, NumPyModelingScikit-Learn, XGBoost, CatBoostWeb FrameworkFlaskDeploymentAWS Elastic BeanstalkVersion ControlGit, GitHub
+---
 
+## 🏗️ Project Architecture / Workflow
 
-🏗️ Project Architecture / Workflow
+```text
+Dataset
+   │
+   ▼
+Data Ingestion
+   │
+   ▼
+Data Transformation
+   │
+   ▼
+Model Training
+   │
+   ▼
+Model Evaluation
+   │
+   ▼
+Best Model Selection
+   │
+   ▼
+Model Serialization
+   │
+   ▼
+Prediction Pipeline
+   │
+   ▼
+Flask Application
+   │
+   ▼
+AWS Deployment
+```
 
-Dataset → Data Ingestion → Data Transformation → Model Training → 
-Model Evaluation → Best Model Selection → Model Serialization → 
-Prediction Pipeline → Flask Application → AWS Deployment
+### Models Evaluated
 
-Models Evaluated
+* Linear Regression
+* Decision Tree Regressor
+* Random Forest Regressor
+* Gradient Boosting Regressor
+* AdaBoost Regressor
+* XGBoost Regressor
+* CatBoost Regressor
 
+The best-performing model is automatically selected based on evaluation metrics and serialized for inference.
 
-Linear Regression
-Decision Tree Regressor
-Random Forest Regressor
-Gradient Boosting Regressor
-AdaBoost Regressor
-XGBoost Regressor
-CatBoost Regressor
+---
 
+## 📁 Project Structure
 
-The best-performing model is automatically selected based on evaluation metrics and serialized for use in the prediction pipeline.
-
-
-📁 Project Structure
-
+```text
 ML_Project
-├── artifacts                  # Stored datasets, models, and preprocessor objects
+│
+├── artifacts
+│   ├── model.pkl
+│   ├── preprocessor.pkl
+│   ├── raw.csv
+│   ├── train.csv
+│   └── test.csv
+│
 ├── src
-│   ├── components             # Data ingestion, transformation, model training
-│   ├── pipeline                # Training and prediction pipelines
-│   ├── logger.py              # Logging configuration
-│   ├── exception.py           # Custom exception handling
-│   └── utils.py               # Common utility functions
-├── templates                  # HTML templates for Flask app
-├── static                      # Static assets (CSS, JS, images)
-├── application.py             # Flask application entry point
-├── requirements.txt           # Project dependencies
-├── setup.py                    # Package setup configuration
+│   ├── components
+│   │   ├── data_ingestion.py
+│   │   ├── data_transformation.py
+│   │   └── model_trainer.py
+│   │
+│   ├── pipeline
+│   │   └── predict_pipeline.py
+│   │
+│   ├── logger.py
+│   ├── exception.py
+│   └── utils.py
+│
+├── templates
+│   ├── home.html
+│   └── index.html
+│
+├── static
+│
+├── application.py
+├── requirements.txt
+├── setup.py
 └── README.md
+```
 
+---
 
-⚙️ Installation & Setup
+## ⚙️ Installation & Setup
 
-bash# Clone the repository
-git clone https://github.com/<your-username>/student-performance-prediction.git
-cd student-performance-prediction
+### 1️⃣ Clone the Repository
 
-# Create and activate a virtual environment
+```bash
+git clone https://github.com/DevanshPandey1308/ML-Project.git
+cd ML-Project
+```
+
+### 2️⃣ Create a Virtual Environment
+
+```bash
 python -m venv venv
-source venv/bin/activate      # On Windows: venv\Scripts\activate
+```
 
-# Install dependencies
+### 3️⃣ Activate the Virtual Environment
+
+#### Windows
+
+```bash
+venv\Scripts\activate
+```
+
+#### Linux / macOS
+
+```bash
+source venv/bin/activate
+```
+
+### 4️⃣ Install Dependencies
+
+```bash
 pip install -r requirements.txt
+```
 
-# Run the Flask application
+### 5️⃣ Run the Application
+
+```bash
 python application.py
+```
 
-The app will be available at http://127.0.0.1:5000/
+### 6️⃣ Open in Browser
 
+```text
+http://127.0.0.1:5000
+```
 
-📸 Screenshots
+---
 
-Home PagePrediction Result[Add screenshot here][Add screenshot here]
+## 📸 Screenshots
 
+### Home Page
 
-🔮 Future Improvements
-
-
-Add CI/CD pipeline using GitHub Actions
-Containerize the application using Docker
-Integrate MLflow for experiment tracking
-Add hyperparameter tuning with Optuna
-Build a REST API layer for programmatic predictions
-Add unit tests and test coverage reports
+<img width="746" height="448" alt="Screenshot 2026-06-13 221258" src="https://github.com/user-attachments/assets/cf2f0fa4-04f4-4a25-a968-43663bd5d6b0" />
 
 
+### Prediction Form
 
-👤 Author
+<img width="746" height="445" alt="Screenshot 2026-06-13 221337" src="https://github.com/user-attachments/assets/4a3b3e97-1f6e-45e5-9248-a6dcc716de8a" />
 
-Devansh Pandey
-Data Science Enthusiast
-Email: devanshp171@gmail.com
+
+### Prediction Output
+
+<img width="746" height="447" alt="Screenshot 2026-06-13 221354" src="https://github.com/user-attachments/assets/5efc4dd9-7934-46a4-89bf-e46dd369d96b" />
+
+
+---
+
+## 🎯 Key Learnings
+
+Through this project, I gained hands-on experience in:
+
+* End-to-End Machine Learning Pipelines
+* Data Preprocessing & Feature Engineering
+* Model Training & Evaluation
+* Scikit-Learn Pipelines
+* Object-Oriented Project Architecture
+* Flask Application Development
+* Model Deployment on AWS Elastic Beanstalk
+* Production-Level Debugging & Troubleshooting
+
+---
+
+## 🔮 Future Improvements
+
+* Docker Containerization
+* CI/CD Pipeline using GitHub Actions
+* MLflow Integration
+* Hyperparameter Tuning
+* Model Monitoring
+* Automated Retraining Pipeline
+* REST API Development
+
+---
+
+## 👤 Author
+
+**Devansh Pandey**
+**email : devanshp171@gmail.com**
+
+* GitHub: https://github.com/DevanshPandey1308
+* LinkedIn: https://linkedin.com/in/devansh-pandey
+
+---
+
+## ⭐ If you found this project useful, consider giving it a star!
