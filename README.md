@@ -164,7 +164,7 @@ python application.py
 ### 6️⃣ Open in Browser
 
 ```text
-http://127.0.0.1:5000
+StudentPerformancePredictor-env.eba-mrqxyj2a.ap-south-1.elasticbeanstalk.com
 ```
 
 ---
