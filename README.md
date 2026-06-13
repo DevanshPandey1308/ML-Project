@@ -222,7 +222,8 @@ Through this project, I gained hands-on experience in:
 
 * GitHub: https://github.com/DevanshPandey1308
 * LinkedIn: https://www.linkedin.com/in/devanshp13/
-
+* Project Live Demo: StudentPerformancePredictor-env.eba-mrqxyj2a.ap-south-1.elasticbeanstalk.com
+* 
 ---
 
 ## ⭐ If you found this project useful, consider giving it a star!
