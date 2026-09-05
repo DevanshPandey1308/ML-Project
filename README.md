@@ -1,6 +1,6 @@
-# NexCart with RecoverAI
+# NexCart | RecoverAI
 
-> A full-stack electronics marketplace with **RecoverAI** - a bounded, auditable workflow that turns failed payments into recoverable revenue.
+> An electronics marketplace with **RecoverAI** - a built-in revenue recovery layer that detects failed payments, recommends safe interventions, and turns lost checkout intent into measurable recovered revenue.
 
 ## Why NexCart
 
