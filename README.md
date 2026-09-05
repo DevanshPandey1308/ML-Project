@@ -1,4 +1,4 @@
-# NexCart
+# NexCart with RecoverAI
 
 > A full-stack electronics marketplace with **RecoverAI** - a bounded, auditable workflow that turns failed payments into recoverable revenue.
 
@@ -76,7 +76,7 @@ flowchart LR
     Webhook --> Services
 
     Services --> RecoverAI[RecoverAI engine]
-    RecoverAI -. optional decision .-> Gemini[Gemini decision provider]
+    RecoverAI --> Gemini[Gemini decision provider]
     RecoverAI --> RecoveryData[(Recovery cases<br/>actions and audit logs)]
     RecoveryData --> Database
 ```
