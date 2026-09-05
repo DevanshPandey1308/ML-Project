@@ -2,10 +2,6 @@
 
 > A full-stack electronics marketplace with **RecoverAI** - a bounded, auditable workflow that turns failed payments into recoverable revenue.
 
-Built for **Razorpay Buildathon - Track 03: AI Revenue Recovery**.
-
-![Java 21](https://img.shields.io/badge/Java-21-orange?logo=openjdk) ![Spring Boot 3.5](https://img.shields.io/badge/Spring%20Boot-3.5-6DB33F?logo=springboot) ![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react) ![MySQL 8](https://img.shields.io/badge/MySQL-8-4479A1?logo=mysql) ![Razorpay Test Mode](https://img.shields.io/badge/Razorpay-Test%20Mode-0C2451)
-
 ## Why NexCart
 
 Failed payments are a silent e-commerce revenue leak. A customer may still intend to buy, but a timeout, bank decline, or interrupted checkout leaves the order unfinished. Most products either stop at the failure or rely on an unrestricted AI agent to act on financial data.
