@@ -34,19 +34,15 @@ This project is built around those cases. Scheduled emails are stored safely, re
 - Optional Slack alert when a sender reaches its hourly cap
 - Email search powered by Elasticsearch
 - Scheduled and Sent views with pagination, plus loading, empty and error states
-- Password-protected queue view with Bull Board at `/admin/queues`
+- Authenticated queue view with Bull Board at `/admin/queues`
 
 ---
 
 ## Screenshots
 
-| Login | Google account chooser |
-| --- | --- |
-| ![Login page](docs/screenshots/login.png) | ![Google sign-in](docs/screenshots/google-signin.png) |
-
-| Dashboard | Empty queue |
-| --- | --- |
-| ![Dashboard](docs/screenshots/dashboard.png) | ![Empty queue](docs/screenshots/empty-queue.png) |
+| Login | Dashboard | Empty queue |
+| --- | --- | --- |
+| ![Login page](docs/screenshots/login.png) | ![Dashboard](docs/screenshots/dashboard.png) | ![Empty queue](docs/screenshots/empty-queue.png) |
 
 ---
 
@@ -91,7 +87,7 @@ Elasticsearch    BullMQ + Redis (delayed jobs)
                   PostgreSQL status update
 ```
 
-**Scheduling.** When a campaign is created, the API saves the campaign, its email rows and outbox events in a single database transaction. A publisher then adds one delayed BullMQ job per email using the ID `email-{emailId}`, so retrying can never create a duplicate job. PostgreSQL is the source of truth. Redis and Elasticsearch can always be rebuilt from it.
+**Scheduling.** When a campaign is created, the API saves the campaign, its email rows and outbox events in a single database transaction. A publisher then adds one delayed BullMQ job per email using the ID `email-{emailId}`. Because the ID is deterministic, publishing is idempotent: retrying the handoff does not add a second job for the same email. PostgreSQL is the source of truth. The search index and any missing queue jobs can be rebuilt from it. Redis also holds rate-limit reservations and Slack alert de-duplication state, which are not stored in PostgreSQL.
 
 **Restart recovery.** On startup, the app republishes pending outbox events and re-creates any job that exists in PostgreSQL but not in Redis. A small retry timer repeats this after temporary failures. It only retries recovery and does not schedule emails, so this is not cron-based scheduling.
 
@@ -248,7 +244,7 @@ $env:RUN_INTEGRATION_TESTS='1'; npm test
 RUN_INTEGRATION_TESTS=1 npm test
 ```
 
-At my last run, the default suite passed 13 tests (20 integration tests skipped) and the full suite passed all 33. These tests use real local services but a stubbed SMTP, so they do not prove delivery to a live Slack workspace or Ethereal inbox. After changing the schema, run `npx prisma validate --schema backend/prisma/schema.prisma`.
+In my most recent run, the default suite passed 13 tests (20 integration tests skipped) and the full suite passed all 33. These tests use real local services but a stubbed SMTP, so they do not prove delivery to a live Slack workspace or Ethereal inbox. After changing the schema, run `npx prisma validate --schema backend/prisma/schema.prisma`.
 
 ---
 
