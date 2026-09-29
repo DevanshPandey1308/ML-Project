@@ -1,298 +1,215 @@
 # ReachInbox Email Scheduler
 
-A full-stack app for scheduling outreach emails and sending them later, safely and at a controlled pace. You sign in with Google, add one or more sender identities, write an email, pick a start time, and the system takes care of the rest, even if the server restarts in between.
+ReachInbox is a full-stack email scheduling application built for the Software Development Intern assignment. It lets a signed-in user connect sender identities, prepare a message for one or more recipients, and schedule delivery for a chosen time. The dashboard also shows scheduled and completed email activity.
 
-I built this as part of the ReachInbox Software Development Intern assignment.
+The project focuses on the parts that make a scheduler dependable: persistent jobs, restart recovery, safe processing across workers, and sender-level rate limits. Email delivery uses Ethereal, so messages can be inspected in a test inbox without contacting real recipients.
 
-<!-- Add your demo video link below once it is recorded -->
-**Demo video:** _add link here_
+## What problem this solves
 
----
+Sending a message at a future time is straightforward until a process restarts, several jobs become due together, or a sender reaches a provider limit. A dependable scheduler must retain the work, avoid accidental duplicate sends, and defer messages safely when sending capacity is unavailable.
 
-## Table of contents
-
-1. [What problem does this solve?](#what-problem-does-this-solve)
-2. [Features](#features)
-3. [Screenshots](#screenshots)
-4. [Tech stack](#tech-stack)
-5. [How it works (architecture)](#how-it-works-architecture)
-6. [Project structure](#project-structure)
-7. [Getting started](#getting-started)
-8. [Environment variables](#environment-variables)
-9. [Google and Slack setup](#google-and-slack-setup)
-10. [API overview](#api-overview)
-11. [Testing](#testing)
-12. [Design decisions and trade-offs](#design-decisions-and-trade-offs)
-13. [Known limitations](#known-limitations)
-
----
-
-## What problem does this solve?
-
-Sending a big batch of outreach emails is harder than it looks:
-
-- Emails need to go out at a **specific time**, not right now.
-- Servers crash and restart, and scheduled emails must **not be lost**.
-- The same email must **not be sent twice**.
-- Email providers limit how many emails you can send per hour, so sending needs to be **rate limited**, and nothing should be dropped when the limit is hit.
-- People want to **see** what is queued, what was sent, and what failed.
-
-This project handles all of that. The main rules I set for myself were:
-
-1. **No cron jobs.** Each email is a delayed job in a queue, and the queue fires it at the right moment.
-2. **The database is the source of truth.** If Redis loses something, it can be rebuilt from PostgreSQL.
-3. **Never send twice** if it can be avoided, and be honest when it can't be known.
-
----
+This project combines a web dashboard with an API and background worker. PostgreSQL stores application and delivery state, BullMQ and Redis manage delayed work, and the worker sends due email through Ethereal SMTP. The React dashboard gives users a place to compose, schedule, search, and review messages.
 
 ## Features
 
-- **Google sign-in.** The login is done fully on the server. The browser only gets an opaque, HTTP-only session cookie, so no tokens sit in localStorage.
-- **Multiple senders.** Each user can add several "From" identities. Each sender has its own hourly limit and minimum gap between emails.
-- **Compose and schedule.** Paste email addresses or import a CSV/TXT file, check the detected count and any invalid addresses, then choose a start time. One campaign can hold up to 10,000 recipients.
-- **Delayed jobs with BullMQ.** Every email becomes a delayed job stored in Redis, so scheduling survives restarts.
-- **Restart recovery.** On startup the app compares PostgreSQL with the queue and repairs anything missing.
-- **Rate limiting across workers.** A Redis Lua script enforces a rolling one-hour cap and a minimum delay per sender, even with several workers running.
-- **Slack alerts.** When a sender hits its hourly cap, a Slack message can be posted to the user's connected workspace. If Slack is not connected, emails keep flowing normally.
-- **Search.** Elasticsearch powers email search, and results are always checked against PostgreSQL and the logged-in user.
-- **Queue dashboard.** An authenticated Bull Board page at `/admin/queues` shows the live queue.
-- **Dashboard UI.** Scheduled and Sent lists, search, pagination, loading / empty / error states, and a details view for each row.
-
----
+- Google OAuth sign-in, server-side sessions, and logout.
+- User-owned sender accounts with configurable hourly limits and minimum spacing.
+- Email composition with pasted recipients or CSV/TXT import, recipient validation, and scheduled start time.
+- Persistent delayed jobs managed by BullMQ; no cron scheduler is used.
+- PostgreSQL-backed campaign, recipient, session, sender, and delivery state.
+- Transactional outbox and startup reconciliation to recover queue handoffs and missing jobs.
+- Worker concurrency configured through the environment.
+- Atomic Redis-based per-sender rate reservations shared across workers.
+- Rescheduling when a sender reaches its hourly limit, rather than dropping the job.
+- Slack OAuth connection and rate-limit notifications when the user has connected Slack.
+- Ethereal SMTP delivery for safe testing.
+- Search backed by Elasticsearch, with results checked against PostgreSQL ownership and status.
+- Scheduled and sent/failed email views, pagination, status details, and empty/loading/error states.
+- Authenticated Bull Board queue visibility.
 
 ## Screenshots
 
-The screenshots below are from the running app. Put the image files in `docs/screenshots/` (or update the paths).
+The sign-in screen uses Google OAuth. The workspace provides a scheduled-email queue and navigation to sent messages and email composition.
 
-| Login | Google account chooser |
-| --- | --- |
-| ![Login page](docs/screenshots/login.png) | ![Google sign-in](docs/screenshots/google-signin.png) |
-
-| Dashboard (Scheduled tab) | Empty queue state |
-| --- | --- |
-| ![Dashboard](docs/screenshots/dashboard.png) | ![Empty queue](docs/screenshots/empty-queue.png) |
-
----
-
-## Tech stack
-
-| Layer | Technology | Why it is here |
-| --- | --- | --- |
-| Frontend | React, Vite | Dashboard UI. Vite also proxies `/api` to the backend in development. |
-| Backend | Node.js, TypeScript, Express | REST API and the email worker. |
-| Database | PostgreSQL with Prisma | Source of truth for users, senders, campaigns, emails, sessions and Slack connections. |
-| Queue | BullMQ on Redis | Delayed email jobs that survive restarts. |
-| Rate limiting | Redis + Lua script | Atomic per-sender limit checks. |
-| Search | Elasticsearch | Fast search over emails. |
-| Email | Nodemailer + Ethereal SMTP | Sends test emails to a fake inbox. |
-| Auth | Google OAuth 2.0 | Sign-in. |
-| Notifications | Slack OAuth v2 | Rate limit alerts. |
-| Queue monitoring | Bull Board | Visual queue view. |
-| Local infrastructure | Docker Compose | Runs PostgreSQL, Redis and Elasticsearch locally. |
-
----
-
-## How it works (architecture)
+## Architecture
 
 ```text
-React dashboard
-      │  HTTP-only session cookie
-      ▼
-Express API ── PostgreSQL (source of truth)
-      │              │  Campaign + Emails + Outbox events (one transaction)
-      │              ▼
-      │        Outbox publisher
-      │              │  job id = email-{emailId}
-      ▼              ▼
-Elasticsearch    BullMQ + Redis (delayed jobs)
-                        │
-                        ▼
-                  Email worker
-                   ├─ Redis rate reservation (Lua)
-                   ├─ Slack alert if hourly cap is hit
-                   └─ Nodemailer → Ethereal SMTP
-                        │
-                        ▼
-                  PostgreSQL status update
+React + TypeScript dashboard
+            │
+            │ HTTP requests with an HTTP-only session cookie
+            ▼
+      Express + TypeScript API ───────────────► Elasticsearch
+            │                                    derived search index
+            │ PostgreSQL transaction
+            ├── campaign and email rows
+            └── outbox events
+                     │
+                     ▼
+              Outbox publisher
+                     │ deterministic job ID: email-{emailId}
+                     ▼
+             BullMQ delayed queue ◄──────────► Redis
+                     │
+                     ▼
+                Email worker
+                 ├── Redis atomic sender rate reservation
+                 ├── Slack notification when an hourly cap is reached
+                 └── Nodemailer ─────────────► Ethereal SMTP
+                     │
+                     ▼
+              PostgreSQL delivery state
 ```
 
-### 1. Scheduling an email
+### Scheduling and restart recovery
 
-When a campaign is created, the API saves the campaign, every email row, and a matching "outbox" event in **one database transaction**. Either everything is saved or nothing is.
+PostgreSQL is the source of truth for campaigns and email state. When a campaign is created, the API writes its campaign, email rows, and outbox events in one database transaction. The outbox publisher claims pending events with `FOR UPDATE SKIP LOCKED`, adds BullMQ jobs using deterministic IDs, and marks events as published after the queue accepts them.
 
-A publisher then reads the outbox events (using `FOR UPDATE SKIP LOCKED`, so two instances never grab the same one), adds a delayed BullMQ job for each email, and only then marks the event as published. The job id is always `email-{emailId}`, so retrying the handoff can never create a duplicate job.
+BullMQ delayed jobs determine when an email becomes eligible to run. On startup, reconciliation republishes pending outbox events and repairs missing queue jobs from PostgreSQL. A retry timer runs reconciliation after temporary infrastructure failures; it does not schedule individual emails and is not a cron job.
 
-### 2. Surviving crashes and restarts
+The worker claims eligible email rows with conditional database updates before sending. This makes concurrent processing safer and prevents already-sent rows from being sent again. If the worker loses its connection after the SMTP server may have accepted a message but before PostgreSQL records the result, the outcome is marked `DELIVERY_UNKNOWN`. SMTP cannot provide an exactly-once guarantee across that failure window, so an unknown delivery should be checked in Ethereal before retrying manually.
 
-BullMQ keeps the delayed jobs in Redis. On startup, the app runs a reconciliation step that republishes unpublished outbox events and re-creates any job that PostgreSQL knows about but Redis does not. A small retry timer re-runs this if Redis or the database was briefly down. That timer only retries the recovery step. It does not schedule individual emails, so the app is still not cron-based.
+### Rate limits and worker concurrency
 
-### 3. Sending without duplicates
+Each sender has its own `hourlyLimit` and `minimumDelayMs`. The default values for newly created senders are 100 messages per hour and 2,000 milliseconds between sends; the defaults can be changed with environment variables, and a sender can have its own values in the dashboard. Campaigns using the same sender share that sender's limit.
 
-Before sending, the worker "claims" an email with a conditional database update, so only one worker can win. The status becomes `SENT` only after the SMTP server accepts the message.
+A Redis Lua script uses Redis server time to atomically remove expired reservations, check the rolling-hour cap and minimum spacing, and reserve capacity for an email. The reservation is idempotent by email ID, so parallel workers share one rate-limit decision. Reservations are retained after SMTP failures to avoid releasing capacity while other sends may be in progress.
 
-There is one case that no system can fully solve: if the process dies *after* the SMTP server accepted the email but *before* the database was updated. In that case the row ends up as `DELIVERY_UNKNOWN` instead of guessing. You can check the Ethereal inbox and decide on a manual retry.
+When capacity is not available, the worker moves the BullMQ job to a future time and retries it. It does not mark the message permanently failed or discard it. Worker concurrency is configured separately with `WORKER_CONCURRENCY`.
 
-### 4. Rate limiting
+If the sender's owner has connected Slack, the worker sends a notification when the hourly cap is reached. Redis deduplicates notifications for the same rate-limit window. If Slack is not connected or Slack configuration is unavailable, email processing continues without a notification.
 
-Each sender record stores an `hourlyLimit` and a `minimumDelayMs`. By default, new senders get 100 emails per hour and a 2,000 ms gap, and users can change both in the dashboard.
+### Search and queue visibility
 
-A single Redis Lua script does the whole check in one atomic step:
+Elasticsearch is a search index, not the authoritative data store. Search results are resolved back through PostgreSQL and filtered by the authenticated user's ownership and current status. If Elasticsearch is unavailable, the search endpoint returns an error instead of presenting an unavailable search as an empty result.
 
-1. Remove reservations older than one hour.
-2. Check the hourly cap and the minimum spacing.
-3. Either reserve a slot for the email, or return the time to try again.
+Bull Board is mounted at `/admin/queues` and observes the existing email queue. Queue payloads contain email IDs rather than recipient addresses or message bodies.
 
-Because it is atomic, several workers can run at once without going over the limit. If an email is rate limited, its job is moved back to the delayed state, so it is **postponed, not failed**. If Redis is unreachable, the worker does not send and simply reschedules the job. Slots are not given back after an SMTP failure, which keeps the cap safe when other sends may be in progress.
+## Technology stack
 
-### 5. Slack notification
+| Area | Technologies |
+| --- | --- |
+| Frontend | React, TypeScript, Vite |
+| Styling | CSS used by the dashboard |
+| API | Node.js, TypeScript, Express |
+| Database | PostgreSQL, Prisma |
+| Queue and shared rate limiting | BullMQ, Redis |
+| Search | Elasticsearch |
+| Email | Nodemailer, Ethereal SMTP |
+| Authentication | Google OAuth 2.0, server-side sessions |
+| Notifications | Slack OAuth v2 and `chat.postMessage` |
+| Local infrastructure | Docker Compose |
 
-When a sender hits its hourly cap, Redis makes sure only one alert is sent per rate-limit window. The worker posts to Slack using the token saved for that sender's owner (encrypted at rest with AES-256-GCM). If the user never connected Slack, the alert is skipped and emails continue.
+## Application layout
 
-### 6. Search
+The dashboard uses a left navigation rail for Scheduled and Sent emails, with a primary Compose email action. The workspace shows delivery and sender summary cards above the email queue, while account details and the Slack connection are available in the surrounding workspace controls. The Compose flow brings sender selection, recipients, message content, and scheduling options together.
 
-Elasticsearch is only a search index. The final results are always loaded from PostgreSQL using the logged-in user's ID, so users can only ever see their own emails. If Elasticsearch is down, the API returns `503 SEARCH_UNAVAILABLE` instead of a misleading empty list.
-
----
-
-## Project structure
-
-```text
-.
-├── backend/            # Express API, BullMQ worker, Prisma schema and migrations
-├── frontend/           # React + Vite dashboard
-├── docker-compose.yml  # PostgreSQL, Redis, Elasticsearch
-├── .env.example        # Template for local environment variables
-└── README.md
-```
-
-The repository is an npm workspace with two packages: `backend` and `frontend`.
-
----
+The codebase is organized as a root npm workspace. The backend API, worker, and Prisma migrations live under `backend/`; the Prisma schema is at `backend/prisma/schema.prisma`. The React/Vite dashboard is a separate workspace, and Docker Compose defines the local data services.
 
 ## Getting started
 
-**You will need:** Node.js 20 or newer, npm, and Docker with Docker Compose.
+### Prerequisites
 
-**1. Clone the repository**
+- Node.js 20 or newer
+- npm
+- Docker with Docker Compose
+- A Google OAuth web client to use Google sign-in
+- An Ethereal test account to send and inspect test email
+- A Slack app if you want to exercise Slack notifications
 
-```bash
-git clone <your-repo-url>
-cd <your-repo-folder>
-```
+### 1. Configure environment variables
 
-**2. Create your environment file**
+Copy `.env.example` to `.env` in the repository root. Set private values for the secrets and credentials before starting the application. Do not commit `.env` or expose backend secrets through frontend variables.
 
-Copy `.env.example` to `.env` in the repository root, then fill in the values. See [Environment variables](#environment-variables) below.
+For email testing, create an account at [Ethereal Email](https://ethereal.email/) and configure its SMTP username and password. Use the host and port shown for that account; the usual defaults are `smtp.ethereal.email` and `587`.
 
-**3. Create a test mailbox**
+### 2. Start the data services
 
-Go to [Ethereal Email](https://ethereal.email/) and create a free account. Copy the SMTP username and password into `ETHEREAL_USER` and `ETHEREAL_PASSWORD`. Use `smtp.ethereal.email` and port `587` unless Ethereal gives you different values.
-
-**4. Start the services**
-
-```bash
+```powershell
 docker compose up -d postgres redis elasticsearch
 ```
 
-**5. Install packages and set up the database**
+### 3. Install dependencies and prepare the database
 
-```bash
+```powershell
 npm install
 npm run db:generate --workspace backend
 npm run db:deploy --workspace backend
 ```
 
-**6. Run the app**
+### 4. Start the backend and frontend
 
-Terminal 1 (API and worker):
+Run the backend API and worker in one terminal:
 
-```bash
+```powershell
 npm run dev:backend
 ```
 
-Terminal 2 (frontend):
+Run the frontend in a second terminal:
 
-```bash
+```powershell
 npm run dev:frontend
 ```
 
-Now open **http://localhost:5173**.
+The Vite development server proxies `/api` requests to `http://localhost:3000`. The dashboard is available at `http://localhost:5173`, the API health endpoint is `http://localhost:3000/health`, and dependency readiness is reported by `http://localhost:3000/ready`.
 
-**Quick health checks**
-
-- `http://localhost:3000/health` tells you the API is alive.
-- `http://localhost:3000/ready` tells you the dependencies (database, Redis, etc.) are reachable.
-
-> In development, Vite proxies `/api` to `http://localhost:3000`, so login cookies work on the same origin. In production, serve the frontend and `/api` from the same origin behind an HTTPS reverse proxy.
-
----
+For production, route the frontend and `/api` through a same-origin HTTPS reverse proxy or configure an equivalent credentialed setup. The local Vite proxy is for development.
 
 ## Environment variables
 
-The backend reads the `.env` file from the repository root.
+The backend loads `.env` from the repository root when started through the workspace scripts.
 
-| Variable | What it is for |
+| Variable | Purpose |
 | --- | --- |
 | `DATABASE_URL` | PostgreSQL connection string. |
-| `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` | Redis connection used by BullMQ and the rate limiter. |
-| `ELASTICSEARCH_URL`, `ELASTICSEARCH_USERNAME`, `ELASTICSEARCH_PASSWORD`, `ELASTICSEARCH_EMAIL_INDEX` | Elasticsearch connection and index name. |
-| `SESSION_SECRET` | Secret used to sign session and OAuth state values. At least 32 characters. |
-| `TOKEN_ENCRYPTION_KEY` | Secret used to encrypt Slack tokens in the database. At least 32 characters. |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` | Google OAuth credentials. |
-| `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_REDIRECT_URI` | Slack OAuth credentials. |
-| `SLACK_BOT_TOKEN`, `SLACK_NOTIFICATION_CHANNEL_ID` | Optional. A fallback for development when a user has not connected Slack. |
-| `ETHEREAL_HOST`, `ETHEREAL_PORT`, `ETHEREAL_USER`, `ETHEREAL_PASSWORD` | SMTP settings for sending mail. |
-| `WORKER_CONCURRENCY` | How many email jobs run at the same time. Default: 5. |
-| `PROCESSING_STALE_AFTER_MS` | How long a job may stay "processing" before it is marked `DELIVERY_UNKNOWN`. Default: 300000. |
-| `OUTBOX_RETRY_INTERVAL_MS` | How often recovery is retried after a temporary failure. Default: 5000. |
-| `RATE_LIMIT_REDIS_PREFIX`, `SLACK_RATE_LIMIT_REDIS_PREFIX` | Prefixes for Redis keys used by the rate limiter and Slack de-duplication. |
-| `MIN_EMAIL_DELAY_MS`, `MAX_EMAILS_PER_HOUR_PER_SENDER` | Default limits for new senders. Each sender can override them. |
-| `FRONTEND_ORIGIN` | Where the user is sent after OAuth. Default: `http://localhost:5173`. |
+| `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` | Redis connection used by BullMQ and rate limiting. |
+| `ELASTICSEARCH_URL`, `ELASTICSEARCH_USERNAME`, `ELASTICSEARCH_PASSWORD`, `ELASTICSEARCH_EMAIL_INDEX` | Elasticsearch connection and email index settings. |
+| `SESSION_SECRET` | Secret used for session and OAuth-state identifiers; use at least 32 characters. |
+| `TOKEN_ENCRYPTION_KEY` | Key material used to derive the AES-256-GCM key for Slack tokens at rest; use at least 32 characters. |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` | Google OAuth web client and callback configuration. |
+| `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_REDIRECT_URI` | Slack OAuth app and callback configuration. |
+| `SLACK_BOT_TOKEN`, `SLACK_NOTIFICATION_CHANNEL_ID` | Optional development fallback for Slack notifications. |
+| `ETHEREAL_HOST`, `ETHEREAL_PORT`, `ETHEREAL_USER`, `ETHEREAL_PASSWORD` | Ethereal SMTP transport settings. |
+| `WORKER_CONCURRENCY` | Number of email jobs a worker can process concurrently; default is `5`. |
+| `PROCESSING_STALE_AFTER_MS` | Processing lease duration before an uncertain delivery is marked unknown; default is `300000`. |
+| `OUTBOX_RETRY_INTERVAL_MS` | Delay between outbox and queue reconciliation retries; default is `5000`. |
+| `RATE_LIMIT_REDIS_PREFIX`, `SLACK_RATE_LIMIT_REDIS_PREFIX` | Redis key prefixes for sender reservations and Slack notification deduplication. |
+| `MIN_EMAIL_DELAY_MS`, `MAX_EMAILS_PER_HOUR_PER_SENDER` | Defaults used when a sender is created without explicit rate settings; default to `2000` ms and `100`. |
+| `FRONTEND_ORIGIN` | OAuth redirect target after authentication; default is `http://localhost:5173`. |
 
-**Please note:** the values in `.env.example` are for local use only. Generate your own random `SESSION_SECRET` and `TOKEN_ENCRYPTION_KEY`, and never put secrets in any `VITE_` variable, because those end up in browser code.
+The values in `.env.example` are for local development. Generate private random values for `SESSION_SECRET` and `TOKEN_ENCRYPTION_KEY`. Keep credentials on the backend; never prefix them with `VITE_`.
 
----
+## OAuth setup
 
-## Google and Slack setup
+### Google sign-in
 
-### Google login
+Create a Google OAuth 2.0 web application client. Add the callback URL `http://localhost:3000/api/auth/google/callback` as an authorized redirect URI, then set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI` in `.env`.
 
-1. In Google Cloud Console, create an **OAuth 2.0 Client ID** of type *Web application*.
-2. Add `http://localhost:3000/api/auth/google/callback` as an authorized redirect URI.
-3. Put the client ID, secret and redirect URI in `.env`.
+The backend handles the authorization-code exchange and validates one-time OAuth state. After authentication, the browser receives an opaque HTTP-only session cookie; session tokens are not stored in browser local storage.
 
-The backend checks a one-time `state` value, exchanges the authorization code on the server, reads the verified Google profile, and creates a session.
+### Slack connection
 
-### Slack (optional)
+Create a Slack app with OAuth v2 enabled and add `http://localhost:3000/api/auth/slack/callback` as a redirect URI. Configure the Slack client ID, secret, and callback URL in `.env`. A signed-in user can then connect Slack from the dashboard.
 
-1. Create a Slack app and enable **OAuth v2**.
-2. Add `http://localhost:3000/api/auth/slack/callback` as a redirect URL.
-3. Put the Slack client ID, secret and redirect URI in `.env`.
-4. In the app, click **Connect Slack** and approve access.
-
-To test the alert end to end: connect Slack, set a sender's hourly limit to something small (for example 2), and schedule more emails than that. Once the cap is hit, a message should appear in the connected channel.
-
----
+The backend stores the user's Slack token encrypted at rest. The status endpoint returns whether Slack is connected, not the token. To see a live notification, connect a Slack workspace, configure a sender with a low hourly limit, schedule enough emails to reach the cap, and check the authorized channel.
 
 ## API overview
 
-All data routes need a logged-in session. The server figures out who owns what from the session, so the client never sends a `userId`.
+Application data endpoints require the HTTP-only session cookie. The server determines data ownership from the authenticated session; clients do not supply a `userId`.
 
-| Method and path | What it does |
-| --- | --- |
-| `GET /api/auth/google` | Starts Google login. |
-| `GET /api/auth/me` | Returns the current user. |
-| `POST /api/auth/logout` | Ends the session on the server. |
-| `GET /api/auth/slack` | Starts Slack connection for the logged-in user. |
-| `GET /api/auth/slack/status` | Returns `{ connected: boolean }`. Never returns tokens. |
-| `GET /api/senders` | Lists the user's senders. |
-| `POST /api/senders` | Creates a sender. A duplicate email for the same user returns a conflict error. |
-| `POST /api/campaigns` | Creates and schedules a campaign (1 to 10,000 recipients). |
-| `GET /api/emails/scheduled?page=1&pageSize=20` | Lists the user's scheduled emails. |
-| `GET /api/emails/search` | Searches emails. Supports `q`, `status` (repeatable), `campaignId`, `senderId`, `limit` and `page`. |
-| `GET /admin/queues` | Bull Board queue view (login required). |
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/auth/google` | Start Google OAuth. |
+| `GET` | `/api/auth/me` | Return the current session user. |
+| `POST` | `/api/auth/logout` | Revoke the current session. |
+| `GET` | `/api/auth/slack` | Start Slack OAuth for the signed-in user. |
+| `GET` | `/api/auth/slack/status` | Return the current user's Slack connection status. |
+| `GET`, `POST` | `/api/senders` | List or create the current user's senders. |
+| `POST` | `/api/campaigns` | Create and schedule a campaign and its recipients (1–10,000 addresses). |
+| `GET` | `/api/emails/scheduled?page=1&pageSize=20` | List the user's scheduled email rows. |
+| `GET` | `/api/emails/search` | Search user-owned emails with query, status, campaign, sender, and pagination filters. |
+| `GET` | `/admin/queues` | View the authenticated Bull Board queue dashboard. |
 
-**Example: create a campaign**
+Example campaign request:
 
 ```json
 {
@@ -305,63 +222,56 @@ All data routes need a logged-in session. The server figures out who owns what f
 }
 ```
 
-The sender decides the rate limits. If you send rate fields in the request, they must match the sender's current settings.
+The selected sender owns the rate policy. If legacy rate fields are included in a campaign request, they must match the sender's current settings.
 
----
+## Dashboard behavior
 
-## Testing
+- **Sign-in and account:** Google OAuth, user profile details, and session logout.
+- **Scheduled:** paginated, user-scoped email list with loading and empty states.
+- **Sent:** searchable sent and failed messages with status, pagination, and details.
+- **Compose:** choose a sender, paste addresses or import a CSV/TXT file, review detected and invalid addresses, enter a subject and body, choose a start time, and schedule the campaign.
+- **Sending pace:** shows the selected sender's stored hourly cap and minimum delay.
+- **Slack:** connection status is restored after a page reload; successful OAuth returns a short confirmation.
+- **Email details:** shows details already available on the user-scoped row. Cancellation is not exposed as a working action because there is no cancellation API.
 
-Run these from the repository root:
+The interface follows the assignment's [Figma design](https://www.figma.com/design/kOTwGlESjijCYnMgtHfvfU/Outbox-Labs-Assignment?node-id=59-4050&p=f&m=dev). The supplied screenshots show the Google sign-in screen and the scheduled-email workspace.
 
-```bash
+## Verification
+
+The project provides these root-level checks:
+
+```powershell
 npm run typecheck
 npm run build
 npm test
 ```
 
-By default, tests that need live PostgreSQL, Redis and Elasticsearch are skipped. To run everything, start the Docker services first and then run:
-
-```bash
-# macOS / Linux
-RUN_INTEGRATION_TESTS=1 npm test
-```
+By default, tests that need live PostgreSQL, Redis, and Elasticsearch are skipped. With those services running, enable the integration tests with:
 
 ```powershell
-# Windows PowerShell
 $env:RUN_INTEGRATION_TESTS='1'; npm test
 ```
 
-At my last run, the default suite passed 13 tests (20 integration tests skipped), and the full suite with integration tests enabled passed all 33. The integration tests use real local services but a stubbed SMTP, so they do not prove delivery to a live Slack workspace or Ethereal inbox.
+Validate the Prisma schema after schema changes with:
 
-To validate the database schema after changing it:
-
-```bash
+```powershell
 npx prisma validate --schema backend/prisma/schema.prisma
 ```
 
----
+The integration suite uses local services and test SMTP stubs. A passing test suite does not verify delivery to a live Slack workspace or Ethereal account; those flows need to be demonstrated separately.
 
-## Design decisions and trade-offs
+## Known limitations and trade-offs
 
-- **PostgreSQL first.** Redis and Elasticsearch can always be rebuilt from PostgreSQL, so a lost queue is a repair job, not a data loss.
-- **Outbox pattern.** Saving to the database and adding to the queue are two separate systems. The outbox makes sure that a crash between them never loses an email.
-- **Postpone, don't fail.** Rate-limited emails go back to the delayed state, so they are never marked as failed just for being early.
-- **Honest about uncertainty.** `DELIVERY_UNKNOWN` exists because guessing "sent" or "failed" would sometimes be wrong.
-- **Rate slots are kept after failures.** Handing capacity back while other workers may be mid-send could push a sender over its limit.
-- **Best-effort indexing.** Search index updates never block sending. PostgreSQL always has the final say.
+- SMTP delivery cannot be guaranteed exactly once if a process fails after the provider accepts a message but before the database records success. Such cases are recorded as `DELIVERY_UNKNOWN` for verification.
+- Rate reservations remain consumed after SMTP failures to protect the sender cap while concurrent jobs may be active.
+- The current SMTP configuration uses one Ethereal account for authentication. Sender records control the visible From name and address; they do not represent separate SMTP credentials.
+- The dashboard does not cancel queued email. A safe cancellation flow needs an authenticated API and coordinated database and queue state changes.
+- Slack notifications require a connected Slack account or configured development fallback. Missing Slack configuration does not stop email processing.
 
----
+## Assignment demo checklist
 
-## Known limitations
+The assignment asks for a demo video of no more than five minutes. The video should show scheduling an email, the Scheduled and Sent views, and a restart scenario where a future email still sends after the service starts again. A brief rate-limit demonstration is optional. Add the recording to the submission separately; it is not included in this README.
 
-- **One SMTP account.** Each sender has its own visible name and address, but all mail currently goes through the single Ethereal account set in `.env`. Per-sender SMTP credentials are not implemented.
-- **No cancel action.** There is no cancellation API yet, so the **Cancel email** button is disabled on purpose rather than pretending to cancel.
-- **Exactly-once is not guaranteed.** As explained above, a crash right after SMTP acceptance can leave an email as `DELIVERY_UNKNOWN`.
-- **Slack was not verified live in this repository.** The code path is tested, but a real end-to-end Slack alert needs your own Slack app and workspace.
-- **Design match.** The UI follows the ReachInbox look and feel, but a pixel-level comparison with a design file was not done.
+The assignment also asks submitters to note assumptions and trade-offs. The behavior and limitations above document the main ones for this implementation.
 
----
 
-## Author
-
-**Swati Pathak**
